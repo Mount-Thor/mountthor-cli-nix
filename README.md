@@ -1,25 +1,22 @@
-# mountthor-cli (Nix flake)
+# mountthor-cli
 
-A Nix flake that packages the official prebuilt [`mountthor`](https://mountthor.com)
-CLI — the customer-facing tool for Mount Thor, a neocloud for dedicated
-Apple-silicon Mac fleets.
+The customer CLI for [Mount Thor](https://mountthor.com), a neocloud for
+dedicated Apple-silicon Mac fleets. `mountthor` is the entry point for
+everything you do against the Mount Thor API — register an account, manage API
+keys and sessions, browse the catalog, lease bare-metal Macs, and launch VMs on
+top of them.
 
-These are upstream prebuilt binaries (Apache-2.0), pulled from
-`https://get.mountthor.com` and verified by SHA-256. On Linux the glibc binary
-is patched with `autoPatchelfHook` so it runs on NixOS and any Nix-on-Linux
-host; on macOS the self-contained Mach-O binary is installed as-is. Shell
-completions and man pages are generated from the binary's own
-`docs completions` / `docs man` subcommands.
+This repo is a Nix flake that distributes the official prebuilt `mountthor`
+binaries (Apache-2.0).
 
 ## Supported systems
 
-| System           | Artifact                                  |
-| ---------------- | ----------------------------------------- |
-| `x86_64-linux`   | `mountthor-x86_64-unknown-linux-gnu.tar.xz` |
-| `aarch64-darwin` | `mountthor-aarch64-apple-darwin.tar.xz`   |
-| `x86_64-darwin`  | `mountthor-x86_64-apple-darwin.tar.xz`    |
+|           | Linux | macOS |
+| --------- | :---: | :---: |
+| `x86_64`  |   ✅   |   ✅   |
+| `aarch64` |   —   |   ✅   |
 
-Upstream publishes no `aarch64-linux` tarball, so it is not packaged.
+`aarch64-linux` is unavailable upstream, so it is not packaged.
 
 ## Usage
 
@@ -56,6 +53,10 @@ nix build .#mountthor-cli
 ./result/bin/mountthor --version
 ```
 
+The package also installs shell completions (bash/zsh/fish) and man pages,
+generated from the CLI's own `mountthor docs completions` / `mountthor docs man`
+subcommands.
+
 ## Updating to a new release
 
 Release metadata lives in [`sources.nix`](./sources.nix), mirroring the
@@ -73,6 +74,7 @@ Release metadata lives in [`sources.nix`](./sources.nix), mirroring the
 
 ## License
 
-The packaging in this repo is provided as-is. The `mountthor` binary itself is
-distributed by Mount Thor under the Apache-2.0 license (see the bundled
-`LICENSE`, installed to `share/doc/mountthor-cli/`).
+The `mountthor` binary is distributed by Mount Thor under the Apache-2.0 license
+(bundled `LICENSE`, installed to `share/doc/mountthor-cli/`). On Linux the
+prebuilt glibc binary is patched with `autoPatchelfHook` so it runs on
+Nix-managed systems; the macOS binaries are installed as-is.
