@@ -1,0 +1,47 @@
+name: Update mountthor
+
+# Daily check against https://get.mountthor.com/manifest.json. When upstream's
+# ".latest" advances past our pin, regenerate sources.nix and open a PR.
+
+on:
+  schedule:
+    # 06:17 UTC — off-the-hour to dodge GitHub's cron stampede.
+    - cron: "17 6 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  bump:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Regenerate sources.nix
+        run: ./update.sh
+
+      - name: Inspect diff
+        id: diff
+        run: |
+          if git diff --quiet -- sources.nix; then
+            echo "changed=false" >> "$GITHUB_OUTPUT"
+          else
+            version=$(grep -oP 'version = "\K[^"]+' sources.nix)
+            echo "changed=true" >> "$GITHUB_OUTPUT"
+            echo "version=$version" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Open PR
+        if: steps.diff.outputs.changed == 'true'
+        uses: peter-evans/create-pull-request@v6
+        with:
+          branch: auto/bump-mountthor
+          delete-branch: true
+          commit-message: "Bump mountthor to ${{ steps.diff.outputs.version }}"
+          title: "Bump mountthor to ${{ steps.diff.outputs.version }}"
+          body: |
+            Automated update from `https://get.mountthor.com/manifest.json`.
+
+            Release notes: https://github.com/Mount-Thor/mount-thor/releases/tag/mountthor-v${{ steps.diff.outputs.version }}
