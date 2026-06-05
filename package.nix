@@ -50,7 +50,9 @@ stdenvNoCC.mkDerivation (finalAttrs: {
   installPhase = ''
     runHook preInstall
 
-    install -Dm755 mountthor -t $out/bin
+    # Upstream renamed the binary from `mountthor` to `mthr` in the 0.3.x
+    # series; the tarball directory name is still mountthor-<triple>/.
+    install -Dm755 mthr      -t $out/bin
     install -Dm644 LICENSE   $out/share/doc/${finalAttrs.pname}/LICENSE
     install -Dm644 README.md $out/share/doc/${finalAttrs.pname}/README.md
 
@@ -65,15 +67,15 @@ stdenvNoCC.mkDerivation (finalAttrs: {
     runHook preInstallCheck
 
     export HOME=$(mktemp -d)
-    $out/bin/mountthor --version
+    $out/bin/mthr --version
 
-    installShellCompletion --cmd mountthor \
-      --bash <($out/bin/mountthor docs completions bash) \
-      --zsh <($out/bin/mountthor docs completions zsh) \
-      --fish <($out/bin/mountthor docs completions fish)
+    installShellCompletion --cmd mthr \
+      --bash <($out/bin/mthr docs completions bash) \
+      --zsh <($out/bin/mthr docs completions zsh) \
+      --fish <($out/bin/mthr docs completions fish)
 
     mandir=$(mktemp -d)
-    $out/bin/mountthor docs man --out "$mandir"
+    $out/bin/mthr docs man --out "$mandir"
     installManPage "$mandir"/*.1
 
     runHook postInstallCheck
@@ -95,7 +97,7 @@ stdenvNoCC.mkDerivation (finalAttrs: {
     changelog = "https://github.com/Mount-Thor/mount-thor/releases/tag/mountthor-v${version}";
     license = lib.licenses.asl20;
     sourceProvenance = [ lib.sourceTypes.binaryNativeCode ];
-    mainProgram = "mountthor";
+    mainProgram = "mthr";
     platforms = builtins.attrNames manifest.artifacts;
     maintainers = [ ];
   };

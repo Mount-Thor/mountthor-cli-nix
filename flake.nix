@@ -28,7 +28,7 @@
       apps = forAllSystems (system: {
         default = {
           type = "app";
-          program = "${self.packages.${system}.default}/bin/mountthor";
+          program = "${self.packages.${system}.default}/bin/mthr";
           meta.description = "Customer CLI for Mount Thor";
         };
       });
