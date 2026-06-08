@@ -23,13 +23,15 @@ stdenvNoCC.mkDerivation (finalAttrs: {
   inherit version;
 
   # Prebuilt tarball straight from the upstream distribution endpoint.
+  # Upstream renamed the release path + filename from `mountthor` to `mthr`
+  # starting with 0.3.19, mirroring the earlier binary rename.
   src = fetchurl {
-    url = "https://get.mountthor.com/mountthor/v${version}/mountthor-${source.triple}.tar.xz";
+    url = "https://get.mountthor.com/mthr/v${version}/mthr-${source.triple}.tar.xz";
     inherit (source) sha256;
   };
 
-  # Each tarball unpacks to a single mountthor-<triple>/ directory.
-  sourceRoot = "mountthor-${source.triple}";
+  # Each tarball unpacks to a single mthr-<triple>/ directory.
+  sourceRoot = "mthr-${source.triple}";
 
   nativeBuildInputs =
     [
@@ -54,8 +56,6 @@ stdenvNoCC.mkDerivation (finalAttrs: {
   installPhase = ''
     runHook preInstall
 
-    # Upstream renamed the binary from `mountthor` to `mthr` in the 0.3.x
-    # series; the tarball directory name is still mountthor-<triple>/.
     install -Dm755 mthr      -t $out/bin
     install -Dm644 LICENSE   $out/share/doc/${finalAttrs.pname}/LICENSE
     install -Dm644 README.md $out/share/doc/${finalAttrs.pname}/README.md
