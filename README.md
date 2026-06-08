@@ -58,6 +58,19 @@ The package also installs shell completions (bash/zsh/fish) and man pages,
 generated from the CLI's own `mthr docs completions` / `mthr docs man`
 subcommands.
 
+### `mthr kubeconfig` from `nix run`
+
+The kubeconfig that `mthr kubeconfig` writes uses a client-go exec-credential
+plugin, whose `command:` field defaults to bare `mthr` — and `nix run
+github:Mount-Thor/mountthor-cli-nix -- kubeconfig` never puts `mthr` on
+`$PATH`, so by default `kubectl` would fail with `executable mthr not found`.
+
+This flake wraps the binary to default `MOUNTTHOR_KUBECONFIG_EXEC_COMMAND` to
+its own absolute Nix store path, so kubeconfigs generated via `nix run` work
+without a separate install step. To pin a different absolute path (e.g. a
+shim on `$PATH`), set `MOUNTTHOR_KUBECONFIG_EXEC_COMMAND` or pass
+`--exec-command <path>` to `mthr kubeconfig` — explicit overrides win.
+
 ## Updating to a new release
 
 Release metadata lives in [`sources.nix`](./sources.nix). Source of truth is

@@ -5,6 +5,7 @@
   fetchurl,
   autoPatchelfHook,
   installShellFiles,
+  makeWrapper,
   xz,
 }:
 
@@ -31,7 +32,10 @@ stdenvNoCC.mkDerivation (finalAttrs: {
   sourceRoot = "mountthor-${source.triple}";
 
   nativeBuildInputs =
-    [ installShellFiles ]
+    [
+      installShellFiles
+      makeWrapper
+    ]
     # The Linux binary is a glibc dynamic ELF; rewrite its interpreter + RPATH
     # to the Nix store so it runs on NixOS (and any Nix-on-Linux host).
     ++ lib.optionals stdenvNoCC.hostPlatform.isLinux [ autoPatchelfHook ];
@@ -57,6 +61,19 @@ stdenvNoCC.mkDerivation (finalAttrs: {
     install -Dm644 README.md $out/share/doc/${finalAttrs.pname}/README.md
 
     runHook postInstall
+  '';
+
+  # `mthr kubeconfig` writes a client-go exec-credential plugin whose
+  # `command:` field defaults to bare `mthr`, which kubectl resolves against
+  # $PATH. The `nix run github:Mount-Thor/mountthor-cli-nix -- kubeconfig`
+  # entrypoint never puts `mthr` on $PATH, so kubectl would fail with
+  # `executable mthr not found`. Default the upstream override env var
+  # (`MOUNTTHOR_KUBECONFIG_EXEC_COMMAND`) to this derivation's absolute path
+  # so generated kubeconfigs keep working without a separate install step.
+  # `--set-default` preserves an explicit user override.
+  postFixup = ''
+    wrapProgram $out/bin/mthr \
+      --set-default MOUNTTHOR_KUBECONFIG_EXEC_COMMAND $out/bin/mthr
   '';
 
   # installCheckPhase runs after fixupPhase, so on Linux the binary is already
