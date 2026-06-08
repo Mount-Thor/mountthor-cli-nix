@@ -34,6 +34,7 @@ jobs:
           fi
 
       - name: Open PR
+        id: cpr
         if: steps.diff.outputs.changed == 'true'
         uses: peter-evans/create-pull-request@v6
         with:
@@ -45,3 +46,14 @@ jobs:
             Automated update from `https://get.mountthor.com/manifest.json`.
 
             Release notes: https://github.com/Mount-Thor/mount-thor/releases/tag/mountthor-v${{ steps.diff.outputs.version }}
+
+      - name: Wait for checks and merge
+        if: steps.cpr.outputs.pull-request-number != ''
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          PR_NUMBER: ${{ steps.cpr.outputs.pull-request-number }}
+        run: |
+          # Give CI a moment to register on the new commit.
+          sleep 30
+          gh pr checks "$PR_NUMBER" --watch --fail-fast
+          gh pr merge "$PR_NUMBER" --squash --delete-branch
