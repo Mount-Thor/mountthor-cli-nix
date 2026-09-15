@@ -16,13 +16,15 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  build:
+  check:
     strategy:
       fail-fast: false
       matrix:
         include:
           - runner: ubuntu-latest
             system: x86_64-linux
+          - runner: ubuntu-24.04-arm
+            system: aarch64-linux
           - runner: macos-14
             system: aarch64-darwin
     name: ${{ matrix.system }}
@@ -35,22 +37,11 @@ jobs:
           extra_nix_config: |
             experimental-features = nix-command flakes
 
-      # Builds both package variants for this system and runs their
-      # installCheckPhase, which smoke-tests the binary and asserts that the
-      # version pinned in sources.nix is the version the binary reports.
-      - run: nix flake check --print-build-logs
-
-  eval:
-    # x86_64-darwin has no hosted runner. Evaluating its derivation still
-    # catches a missing artifact or a malformed sources.nix entry.
-    name: x86_64-darwin (eval only)
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-
-      - uses: cachix/install-nix-action@v27
-        with:
-          extra_nix_config: |
-            experimental-features = nix-command flakes
-
-      - run: nix eval --raw .#packages.x86_64-darwin.mountthor-cli.drvPath
+      # --all-systems evaluates every platform in sources.nix, which catches a
+      # missing artifact or a malformed entry, and builds the two variants this
+      # runner can actually build. Their installCheckPhase smoke-tests the
+      # binary and asserts that the pinned version is the version it reports.
+      #
+      # x86_64-darwin is only ever evaluated: GitHub retired its Intel macOS
+      # runners, so nothing here can build it.
+      - run: nix flake check --all-systems --print-build-logs
