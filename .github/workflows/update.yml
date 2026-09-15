@@ -1,7 +1,8 @@
 name: Update mountthor
 
 # Daily check against https://get.mountthor.com/manifest.json. When upstream's
-# ".latest" advances past our pin, regenerate sources.nix and open a PR.
+# per-platform latest advances past our pin, regenerate sources.nix, verify it
+# builds, and open a PR.
 
 on:
   schedule:
@@ -32,6 +33,21 @@ jobs:
             echo "changed=true" >> "$GITHUB_OUTPUT"
             echo "version=$version" >> "$GITHUB_OUTPUT"
           fi
+
+      - uses: cachix/install-nix-action@v27
+        if: steps.diff.outputs.changed == 'true'
+        with:
+          extra_nix_config: |
+            experimental-features = nix-command flakes
+
+      # A PR opened with GITHUB_TOKEN does not trigger `pull_request`
+      # workflows, so build.yml will not run against this branch and the
+      # `gh pr checks` gate below would wave the bump through on CodeQL alone.
+      # That is how 0.3.59 reached main with an installCheckPhase that could
+      # not pass. Build the new pin here, before the PR exists.
+      - name: Verify the bump builds
+        if: steps.diff.outputs.changed == 'true'
+        run: nix flake check --print-build-logs
 
       - name: Open PR
         id: cpr

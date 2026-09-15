@@ -1,0 +1,56 @@
+name: Build
+
+# Upstream reshuffles the CLI surface between patch releases — 0.3.59 replaced
+# `mthr --version` with a `version` subcommand and dropped `mthr docs
+# completions` / `mthr docs man` — so the package has to be built, not just
+# evaluated, before anything lands on main.
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+concurrency:
+  group: build-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - runner: ubuntu-latest
+            system: x86_64-linux
+          - runner: macos-14
+            system: aarch64-darwin
+    name: ${{ matrix.system }}
+    runs-on: ${{ matrix.runner }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: cachix/install-nix-action@v27
+        with:
+          extra_nix_config: |
+            experimental-features = nix-command flakes
+
+      # Builds both package variants for this system and runs their
+      # installCheckPhase, which smoke-tests the binary and asserts that the
+      # version pinned in sources.nix is the version the binary reports.
+      - run: nix flake check --print-build-logs
+
+  eval:
+    # x86_64-darwin has no hosted runner. Evaluating its derivation still
+    # catches a missing artifact or a malformed sources.nix entry.
+    name: x86_64-darwin (eval only)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: cachix/install-nix-action@v27
+        with:
+          extra_nix_config: |
+            experimental-features = nix-command flakes
+
+      - run: nix eval --raw .#packages.x86_64-darwin.mountthor-cli.drvPath
