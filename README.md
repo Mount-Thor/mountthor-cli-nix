@@ -24,7 +24,7 @@ to `mthr` upstream starting with 0.3.11.
 Run without installing:
 
 ```sh
-nix run github:Mount-Thor/mountthor-cli-nix -- --version
+nix run github:Mount-Thor/mountthor-cli-nix -- version
 ```
 
 Add to a flake:
@@ -51,12 +51,80 @@ Build locally:
 
 ```sh
 nix build .#mountthor-cli
-./result/bin/mthr --version
+./result/bin/mthr version
 ```
 
-The package also installs shell completions (bash/zsh/fish) and man pages,
-generated from the CLI's own `mthr docs completions` / `mthr docs man`
-subcommands.
+## What's bundled
+
+`mthr` shells out to other programs, and under Nix none of them are on `$PATH`
+by default. The default package wraps the CLI so they resolve:
+
+| Tool                     | Used by                                       |
+| ------------------------ | --------------------------------------------- |
+| `ssh`, `ssh-keygen`      | `mthr vm ssh`, derived VM identities           |
+| `tsh` (Teleport client)  | `mthr bm ssh`, `mthr bm desktop`               |
+| `vncviewer` (TigerVNC)   | `mthr vm desktop`, `mthr bm desktop` — Linux   |
+
+`PATH` is appended to rather than prepended, so a `tsh` you already run wins
+over the bundled one. Teleport clients are version-sensitive against the
+cluster, and your own pin should keep working.
+
+Those tools dominate the closure:
+
+| Package                 | Closure  |
+| ----------------------- | -------- |
+| `mountthor-cli`         | ~1.40 GB |
+| `mountthor-cli-minimal` | ~0.09 GB |
+
+If you only want the CLI itself and will bring your own `tsh` and viewer:
+
+```sh
+nix build .#mountthor-cli-minimal
+```
+
+Or, from a flake, `mountthor.packages.${system}.mountthor-cli-minimal`. Via
+`callPackage`, the two knobs are `withTeleport` and `withVncClient`, and
+`vncClient` swaps the viewer for something other than TigerVNC.
+
+## Remote desktops (`mthr vm desktop` / `mthr bm desktop`)
+
+Opening a viewer automatically is macOS-only upstream. On Linux the CLI opens
+the tunnel, prints
+
+```
+Desktop URI: vnc://127.0.0.1:<port>
+```
+
+and holds it there until you interrupt it, expecting you to bring your own
+client. This flake bundles one and exposes it as `mthr-vnc`. Start the tunnel
+in one terminal:
+
+```sh
+mthr vm desktop my-vm --local-port 5999
+```
+
+and connect from another:
+
+```sh
+mthr-vnc 5999
+# or paste the URI: mthr-vnc vnc://127.0.0.1:5999
+```
+
+Arguments after the target go to `vncviewer` unchanged, and `MTHR_VNC_VIEWER`
+points `mthr-vnc` at a different viewer binary.
+
+Without installing, that second terminal is:
+
+```sh
+nix run github:Mount-Thor/mountthor-cli-nix#vnc -- 5999
+```
+
+The tunnel is left in the foreground on purpose: `mthr bm desktop` prints
+one-shot Screen Sharing credentials on its own stdout, which you need to read
+and type into the viewer's password prompt.
+
+On macOS there is nothing to bundle — the system Screen Sharing app already
+handles `vnc://` — so `mthr-vnc` is not built there.
 
 ### `mthr kubeconfig` from `nix run`
 
@@ -85,10 +153,18 @@ self-updating clients and is not what we want here):
 
    ```sh
    nix run nixpkgs#nix-prefetch-url -- --type sha256 \
-     https://get.mountthor.com/mountthor/v<VERSION>/mountthor-<TRIPLE>.tar.xz
+     https://get.mountthor.com/mthr/v<VERSION>/mthr-<TRIPLE>.tar.xz
    ```
 
-3. `nix build .#mountthor-cli` to verify.
+3. `nix flake check` to verify.
+
+[`update.sh`](./update.sh) does all three, and
+[`.github/workflows/update.yml`](./.github/workflows/update.yml) runs it daily
+and merges its own PR once checks pass. Those checks now include a real
+`nix build`, because they have to: upstream reshuffles the command tree
+between patch releases — 0.3.59 replaced `mthr --version` with a `version`
+subcommand and dropped `mthr docs completions` / `mthr docs man` outright —
+and a bot that merges on green will otherwise ship a flake that cannot build.
 
 ## License
 
