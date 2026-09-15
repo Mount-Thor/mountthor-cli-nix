@@ -23,19 +23,22 @@ usage: mthr-vnc <vnc://host:port | host:port | port> [viewer args...]
 
 Connect the bundled VNC viewer to a Mount Thor desktop tunnel.
 
-Start the tunnel in another terminal and leave it running:
+Start the tunnel in another terminal and leave it running. On Linux the
+--no-browser flag is what keeps it open; without it the CLI exits and takes
+the tunnel with it:
 
-    mthr vm desktop <name>        # or: mthr bm desktop <name>
+    mthr bm desktop <name> --local-port 5999 --no-browser
 
-It prints `Desktop URI: vnc://127.0.0.1:<port>`. Feed that to this command:
+It prints the session's Screen Sharing username and password, then
+`vnc://127.0.0.1:5999`. Connect from this terminal:
 
-    mthr-vnc vnc://127.0.0.1:5999
     mthr-vnc 5999
+    mthr-vnc vnc://127.0.0.1:5999    # same thing, pasted
 
-Pin the port yourself to skip the copy/paste:
+The viewer will prompt for those credentials. To skip the prompt, pass them
+through the environment (never the command line, which shows up in `ps`):
 
-    mthr vm desktop <name> --local-port 5999   # terminal one
-    mthr-vnc 5999                              # terminal two
+    VNC_USERNAME=mt-user VNC_PASSWORD=<printed password> mthr-vnc 5999
 
 Any further arguments are passed through to the viewer unchanged. Set
 MTHR_VNC_VIEWER to use a different viewer binary.
