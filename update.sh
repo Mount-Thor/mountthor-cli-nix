@@ -2,19 +2,30 @@
 # Refresh sources.nix to match the upstream manifest's per-platform latest.
 #
 # Pulls https://get.mountthor.com/manifest.json, picks the version we should
-# ship for each of the three platforms we package, and rewrites sources.nix in
-# place. Idempotent — exits 0 with no changes when current.
+# ship for each platform we package, and rewrites sources.nix in place.
+# Idempotent — exits 0 with no changes when current.
 #
 # Why per-platform and not `.latest`: the manifest's global `.latest` is
-# intentionally floored at the last Windows-capable release (currently 0.3.5)
-# so older self-updating clients keep working. Nix only consumes the macOS and
-# Linux tarballs, so we read `.latest_by_platform` instead. macOS arm64,
-# macOS x86_64, and linux-x86_64-tarball move in lockstep on each release —
-# we sanity-check that and fail loudly if they ever diverge, because a single
-# `version` field in sources.nix can't represent a split.
+# intentionally floored at the last Windows-capable release so older
+# self-updating clients keep working. Nix only consumes the macOS and Linux
+# tarballs, so we read `.latest_by_platform` instead. Every platform we
+# package moves in lockstep on each release — we sanity-check that and fail
+# loudly if they ever diverge, because a single `version` field in sources.nix
+# cannot represent a split.
+#
+# Adding a platform: add a row to PLATFORMS below. Nothing else here is
+# platform-specific, and flake.nix derives its system list from sources.nix.
 #
 # Requires: bash, curl, jq.
 set -euo pipefail
+
+# nix system | manifest platform key | rust target triple
+PLATFORMS=(
+  "x86_64-linux|linux-x86_64-tarball|x86_64-unknown-linux-gnu"
+  "aarch64-linux|linux-aarch64-tarball|aarch64-unknown-linux-gnu"
+  "aarch64-darwin|macos-aarch64|aarch64-apple-darwin"
+  "x86_64-darwin|macos-x86_64|x86_64-apple-darwin"
+)
 
 MANIFEST_URL="${MANIFEST_URL:-https://get.mountthor.com/manifest.json}"
 here="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -26,36 +37,38 @@ version_for() {
   jq -er --arg p "$1" '.latest_by_platform[$p]' <<<"$manifest"
 }
 
-linux_v="$(version_for linux-x86_64-tarball)"
-aarch64_darwin_v="$(version_for macos-aarch64)"
-x86_64_darwin_v="$(version_for macos-x86_64)"
-
-if [[ "$linux_v" != "$aarch64_darwin_v" || "$linux_v" != "$x86_64_darwin_v" ]]; then
-  echo "update.sh: per-platform latest diverged — linux=$linux_v, macos-aarch64=$aarch64_darwin_v, macos-x86_64=$x86_64_darwin_v" >&2
-  echo "update.sh: sources.nix has one version field for all three; rerun once upstream realigns or update this script to track them separately." >&2
-  exit 1
-fi
-latest="$linux_v"
-
 sha_for() {
-  local platform="$1"
-  jq -er --arg v "$latest" --arg p "$platform" '
+  jq -er --arg v "$latest" --arg p "$1" '
     .versions[] | select(.version == $v)
     | .artifacts[] | select(.platform == $p) | .sha256
   ' <<<"$manifest"
 }
 
-linux_sha="$(sha_for linux-x86_64-tarball)"
-aarch64_darwin_sha="$(sha_for macos-aarch64)"
-x86_64_darwin_sha="$(sha_for macos-x86_64)"
+# All packaged platforms must agree on a version; sources.nix has one field.
+latest=""
+diverged=""
+for row in "${PLATFORMS[@]}"; do
+  IFS='|' read -r system platform _triple <<<"$row"
+  v="$(version_for "$platform")"
+  diverged+="  $system ($platform): $v"$'\n'
+  if [[ -z "$latest" ]]; then
+    latest="$v"
+  elif [[ "$v" != "$latest" ]]; then
+    echo "update.sh: per-platform latest diverged —" >&2
+    printf '%s' "$diverged" >&2
+    echo "update.sh: sources.nix has one version field for all platforms; rerun once upstream realigns, or teach it to track them separately." >&2
+    exit 1
+  fi
+done
 
-cat >"$sources" <<EOF
+{
+  cat <<EOF
 # Prebuilt mountthor release artifacts.
 #
 # These are official prebuilt binaries (Apache-2.0), not built from source here.
 #
 # Source of truth: https://get.mountthor.com/manifest.json. We track the
-# \`.latest_by_platform\` entries for the three platforms below — NOT the global
+# \`.latest_by_platform\` entries for the platforms below — NOT the global
 # \`.latest\` field, which the renderer floors at the last Windows-capable
 # release for the benefit of old self-updating clients. Nix only consumes the
 # macOS/Linux tarballs, so per-platform \`latest_by_platform\` is what we want.
@@ -70,20 +83,22 @@ cat >"$sources" <<EOF
   version = "$latest";
 
   artifacts = {
-    "x86_64-linux" = {
-      triple = "x86_64-unknown-linux-gnu";
-      sha256 = "$linux_sha";
+EOF
+
+  for row in "${PLATFORMS[@]}"; do
+    IFS='|' read -r system platform triple <<<"$row"
+    cat <<EOF
+    "$system" = {
+      triple = "$triple";
+      sha256 = "$(sha_for "$platform")";
     };
-    "aarch64-darwin" = {
-      triple = "aarch64-apple-darwin";
-      sha256 = "$aarch64_darwin_sha";
-    };
-    "x86_64-darwin" = {
-      triple = "x86_64-apple-darwin";
-      sha256 = "$x86_64_darwin_sha";
-    };
+EOF
+  done
+
+  cat <<'EOF'
   };
 }
 EOF
+} >"$sources"
 
 echo "sources.nix pinned to mountthor v$latest"

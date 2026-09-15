@@ -15,9 +15,12 @@ to `mthr` upstream starting with 0.3.11.
 |           | Linux | macOS |
 | --------- | :---: | :---: |
 | `x86_64`  |   ✅   |   ✅   |
-| `aarch64` |   —   |   ✅   |
+| `aarch64` |   ✅   |   ✅   |
 
-`aarch64-linux` is unavailable upstream, so it is not packaged.
+`aarch64-linux` was unavailable upstream until 0.3.62 and is packaged from
+that release on. The system list is derived from whichever artifacts
+[`sources.nix`](./sources.nix) lists, so a platform appears here as soon as
+upstream publishes a tarball for it and `./update.sh` picks it up.
 
 ## Usage
 
@@ -88,26 +91,33 @@ Or, from a flake, `mountthor.packages.${system}.mountthor-cli-minimal`. Via
 
 ## Remote desktops (`mthr vm desktop` / `mthr bm desktop`)
 
-Opening a viewer automatically is macOS-only upstream. On Linux the CLI opens
-the tunnel, prints
+Opening a viewer automatically is macOS-only upstream. On Linux the CLI
+brokers the session and prints the loopback URL, but only holds the tunnel
+open if you pass `--no-browser`. Without it, 0.3.62 exits with `automatic
+desktop launch requires macOS` and tears the tunnel down on the way out.
 
-```
-Desktop URI: vnc://127.0.0.1:<port>
-```
-
-and holds it there until you interrupt it, expecting you to bring your own
-client. This flake bundles one and exposes it as `mthr-vnc`. Start the tunnel
-in one terminal:
+So on Linux, start the tunnel in one terminal and leave it running:
 
 ```sh
-mthr vm desktop my-vm --local-port 5999
+mthr bm desktop my-mac --local-port 5999 --no-browser
 ```
 
-and connect from another:
+It prints the Screen Sharing username and password for the session, then
+`vnc://127.0.0.1:5999`. Connect from a second terminal with the bundled
+viewer:
 
 ```sh
 mthr-vnc 5999
 # or paste the URI: mthr-vnc vnc://127.0.0.1:5999
+```
+
+The viewer asks for those credentials. TigerVNC negotiates Apple's `DH(30)`
+security type natively, so macOS Screen Sharing accepts it as-is. To skip
+the prompt, hand the credentials to the viewer through its environment
+rather than its arguments, which keeps them out of `ps`:
+
+```sh
+VNC_USERNAME=mt-user VNC_PASSWORD=<printed password> mthr-vnc 5999
 ```
 
 Arguments after the target go to `vncviewer` unchanged, and `MTHR_VNC_VIEWER`
@@ -119,12 +129,12 @@ Without installing, that second terminal is:
 nix run github:Mount-Thor/mountthor-cli-nix#vnc -- 5999
 ```
 
-The tunnel is left in the foreground on purpose: `mthr bm desktop` prints
-one-shot Screen Sharing credentials on its own stdout, which you need to read
-and type into the viewer's password prompt.
+`mthr vm desktop` has no `--no-browser` flag as of 0.3.62, so it currently
+has no way to hold a tunnel open on Linux.
 
 On macOS there is nothing to bundle — the system Screen Sharing app already
-handles `vnc://` — so `mthr-vnc` is not built there.
+handles `vnc://` — so `mthr-vnc` is not built there. Mac users get the same
+credential prompt, since the CLI opens a bare URL.
 
 ### `mthr kubeconfig` from `nix run`
 
@@ -147,8 +157,9 @@ the per-platform `latest_by_platform` map at
 intentionally floored at the last Windows-capable release for older
 self-updating clients and is not what we want here):
 
-1. Bump `version` to the per-platform latest (macOS and Linux move in lockstep
-   on each release, so one version covers all three platforms).
+1. Bump `version` to the per-platform latest. Every packaged platform moves in
+   lockstep on each release, so one version covers them all, and `update.sh`
+   fails loudly if they ever diverge.
 2. Refresh each `sha256` (hex) from the manifest, or prefetch it:
 
    ```sh
@@ -156,15 +167,23 @@ self-updating clients and is not what we want here):
      https://get.mountthor.com/mthr/v<VERSION>/mthr-<TRIPLE>.tar.xz
    ```
 
-3. `nix flake check` to verify.
+3. `nix flake check --all-systems` to verify.
 
-[`update.sh`](./update.sh) does all three, and
-[`.github/workflows/update.yml`](./.github/workflows/update.yml) runs it daily
-and merges its own PR once checks pass. Those checks now include a real
-`nix build`, because they have to: upstream reshuffles the command tree
-between patch releases — 0.3.59 replaced `mthr --version` with a `version`
-subcommand and dropped `mthr docs completions` / `mthr docs man` outright —
-and a bot that merges on green will otherwise ship a flake that cannot build.
+[`update.sh`](./update.sh) does all three. To package a platform upstream has
+newly published, add a row to the `PLATFORMS` table at the top of that script
+and rerun it. Nothing else is platform-specific: the flake derives its system
+list from `sources.nix`.
+
+[`.github/workflows/update.yml`](./.github/workflows/update.yml) runs the
+script daily and merges its own PR. It builds the new pin *before* opening
+that PR, which it has to do for two reasons. Upstream reshuffles the command
+tree between patch releases, so 0.3.59 replaced `mthr --version` with a
+`version` subcommand and dropped `mthr docs completions` / `mthr docs man`
+outright. And a PR opened with `GITHUB_TOKEN` does not trigger
+`pull_request` workflows, so
+[`build.yml`](./.github/workflows/build.yml) never runs on the bump branch.
+Gating on the PR's own checks would wave a broken bump through on CodeQL
+alone.
 
 ## License
 

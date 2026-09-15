@@ -3,7 +3,7 @@
 # These are official prebuilt binaries (Apache-2.0), not built from source here.
 #
 # Source of truth: https://get.mountthor.com/manifest.json. We track the
-# `.latest_by_platform` entries for the three platforms below — NOT the global
+# `.latest_by_platform` entries for the platforms below — NOT the global
 # `.latest` field, which the renderer floors at the last Windows-capable
 # release for the benefit of old self-updating clients. Nix only consumes the
 # macOS/Linux tarballs, so per-platform `latest_by_platform` is what we want.
@@ -15,20 +15,24 @@
 # Only platforms with a published .tar.xz are listed (the manifest also ships
 # .deb/.rpm/.zip artifacts, which are not useful as a Nix source).
 {
-  version = "0.3.59";
+  version = "0.3.62";
 
   artifacts = {
     "x86_64-linux" = {
       triple = "x86_64-unknown-linux-gnu";
-      sha256 = "f06b86600c0e7e95436b789172b3b459c0410d2e0fd23032f620576e245e0379";
+      sha256 = "f4d8db540aea731068e81b312f1b4067f53291b5981db0c14d89bb2c6b1251ec";
+    };
+    "aarch64-linux" = {
+      triple = "aarch64-unknown-linux-gnu";
+      sha256 = "92eb7851d4bc79659584f3652c02454c826a975523ebfa2c7c4a040418c6eca9";
     };
     "aarch64-darwin" = {
       triple = "aarch64-apple-darwin";
-      sha256 = "acaeeca5b7032cd456e91f739d49316304a5575ae82852e04929e02a896a99c3";
+      sha256 = "baa0e06b4366a8407bfb25b30957d5709ef777cc7a959986988781164b945863";
     };
     "x86_64-darwin" = {
       triple = "x86_64-apple-darwin";
-      sha256 = "d637a21c542cb4ee85304d13ed5837ec605166fd6fef22e168abf606819aacf2";
+      sha256 = "e80d7d9efc983fce8601bf976c937dde301df5582f6b5a07abf8cc949b9605c2";
     };
   };
 }
