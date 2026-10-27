@@ -15,24 +15,24 @@
 # Only platforms with a published .tar.xz are listed (the manifest also ships
 # .deb/.rpm/.zip artifacts, which are not useful as a Nix source).
 {
-  version = "0.3.75";
+  version = "0.3.76";
 
   artifacts = {
     "x86_64-linux" = {
       triple = "x86_64-unknown-linux-gnu";
-      sha256 = "7911842c62ddea9a4866542553524d22dc94106bfeec8c6ebd7cff3d51a20107";
+      sha256 = "e2b0d857aa796ec284583baf64e570efde2e2841aba16b4bbb807f56932cd1d1";
     };
     "aarch64-linux" = {
       triple = "aarch64-unknown-linux-gnu";
-      sha256 = "131331e51ff2c103f8130386d8cf5b6f35198bd38846f55e784f1572aadd6b59";
+      sha256 = "3b0be85efe3acf29e2e8dac3ebfc8951a88d4ab201b6d9f4b324ea588a56026c";
     };
     "aarch64-darwin" = {
       triple = "aarch64-apple-darwin";
-      sha256 = "1158aa4b7ca5493db3c47be6125e13c5679ceb7867b41a77ab3854a4f88d61f7";
+      sha256 = "3d0a31e3902ec5b5ef2296840b8cbab8d276109ab08cb037eb5d405af2b2430e";
     };
     "x86_64-darwin" = {
       triple = "x86_64-apple-darwin";
-      sha256 = "f5307b9b44262464ac87c42d916d42918459bf034c92eb58c9c39039c7df9c73";
+      sha256 = "6f78b96b8e6dae8784fad2ff1417abae9694afb904a815c160d90a9ea69127fb";
     };
   };
 }
